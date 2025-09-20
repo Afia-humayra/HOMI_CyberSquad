@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>States of Matter — Interactive Game</title>
+  <style>
+    :root{--bg:#0b1220;--panel:#0b1220;--ink:#e5e7eb;--muted:#94a3b8;--accent:#38bdf8;--good:#34d399;--hot:#ef4444}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    body{background:linear-gradient(180deg,#071029,#081226);color:var(--ink);display:flex;align-items:center;justify-content:center}
+    .app{width:min(1100px,96vw);height:min(700px,92vh);background:linear-gradient(180deg,#071225,#071623);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative;overflow:hidden}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    header h1{font-size:18px;margin:0}
+    header .step{font-size:13px;color:var(--muted)}
+    .scene{position:absolute;inset:60px 0 0 0;padding:22px;display:none}
+    .scene.active{display:block}
+    .stage{position:relative;height:100%;border-radius:12px;background:radial-gradient(800px 320px at 50% 120%,#071225 20%,#071823 60%);overflow:hidden}
+    .table{position:absolute;left:0;right:0;bottom:0;height:160px;background:linear-gradient(180deg,#0b1220,#060914);border-top:1px solid rgba(255,255,255,0.02)}
+    .draggable{cursor:grab; touch-action:none}
+    .ghost{opacity:.82;transform:scale(1.02)}
+    .bottle{position:absolute;width:120px;aspect-ratio:3/8;left:80px;bottom:180px}
+    .tray{position:absolute;width:220px;height:120px;left:340px;bottom:170px;border-radius:14px;background:#0f172a;border:2px solid #1f2937;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+    .cube{border-radius:8px;background:rgba(147,197,253,.15);border:1px solid rgba(147,197,253,.25)}
+    .tray.full .cube{background:rgba(147,197,253,.7)}
+    .freezer{position:absolute;right:60px;bottom:160px;width:240px;height:320px;border-radius:12px;background:#0f172a;border:2px solid #1f2937;box-shadow:inset 0 0 0 6px #07121a}
+    .freezer .door{position:absolute;inset:0;background:#07121a;border-left:2px solid #1f2937;border-radius:10px;transform-origin:left center;transition:transform .8s;pointer-events:none}
+    .freezer.open .door{transform:perspective(600px) rotateY(-70deg)}
+    .glass{position:absolute;left:760px;bottom:160px;width:120px;height:160px;border:2px solid rgba(147,197,253,.6);border-radius:16px 16px 28px 28px;overflow:hidden}
+    .glass .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,rgba(147,197,253,.75),rgba(96,165,250,.85));border-radius:0 0 28px 28px;transition:height .6s}
+    .stove{position:absolute;left:260px;bottom:150px;width:220px;height:120px;border-radius:14px;background:#0b1220;border:2px solid #1f2937;display:none}
+    .pan{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:200px;height:52px;border-radius:24px;background:#0f172a;border:2px solid #334155}
+    .steam{position:absolute;left:50%;top:-50px;transform:translateX(-50%);opacity:0}
+    .steam span{position:absolute;bottom:0;width:8px;height:40px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,.0),rgba(255,255,255,.5));animation:rise 1.8s linear infinite}
+    .steam span:nth-child(2){left:22px;animation-delay:.4s}
+    .steam span:nth-child(3){left:-22px;animation-delay:.8s}
+    @keyframes rise{0%{transform:translateY(0);opacity:.6}100%{transform:translateY(-60px);opacity:0}}
+    .controls{position:absolute;right:16px;top:10px}
+    .pill{background:#07121a;border:1px solid #1f2937;color:var(--ink);padding:8px 12px;border-radius:999px;font-size:13px}
+    .primary{background:linear-gradient(180deg,#0891b2,#0284c7);border:none}
+    .clockWrap{position:absolute;left:26px;top:10px;display:flex;align-items:center;gap:12px}
+    .clock{width:46px;height:46px;border-radius:50%;border:2px solid #94a3b8;position:relative}
+    .hand{position:absolute;left:50%;top:50%;width:2px;height:18px;background:#94a3b8;transform-origin:bottom center;transform:translate(-50%,-100%) rotate(0deg)}
+    .timeText{font-size:13px;color:var(--muted)}
+    .eduBanner{position:absolute;left:24px;top:58px;font-size:14px;color:#e2e8f0;background:#07121a;padding:6px 10px;border-radius:10px}
+    .progress{position:absolute;left:24px;right:24px;bottom:24px;height:8px;background:#07121a;border:1px solid #1f2937;border-radius:999px;overflow:hidden;display:none}
+    .progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#38bdf8,#34d399)}
+    .bigText{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:28px;opacity:0;transition:opacity .5s}
+    .show{opacity:1}
+    .cta{position:absolute;bottom:24px;right:24px}
+    .skip{position:absolute;bottom:24px;left:24px}
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="States of Matter Game">
+    <header>
+      <div class="clockWrap" aria-live="polite">
+        <div class="clock" aria-hidden="true"><div class="hand" id="hand"></div></div>
+        <div class="timeText" id="timeText">00:00:00</div>
+      </div>
+      <h1>States of Matter — Solid · Liquid · Gas</h1>
+      <div class="controls">
+        <button id="resetBtn" class="pill">Reset</button>
+      </div>
+    </header>
+
+    <!-- Scene 1 -->
+    <section class="scene active" id="scene1">
+      <div class="stage">
+        <div class="eduBanner">Goal: Drag the <b>bottle</b> onto the <b>ice tray</b> (or use keyboard arrows).</div>
+        <div class="bottle draggable" id="bottle" tabindex="0" aria-label="Water bottle"></div>
+        <div class="tray" id="tray">
+          <div class="cube"></div><div class="cube"></div><div class="cube"></div><div class="cube"></div>
+          <div class="cube"></div><div class="cube"></div><div class="cube"></div><div class="cube"></div>
+        </div>
+        <div class="glass" id="glass"><div class="fill" id="glassFill"></div></div>
+        <div class="freezer open" id="freezer"><div class="door"></div></div>
+        <button class="pill skip" id="skip1">Skip</button>
+        <div class="table"></div>
+      </div>
+    </section>
+
+    <!-- Scene 2 -->
+    <section class="scene" id="scene2">
+      <div class="stage">
+        <div class="eduBanner">Drag the filled tray into the <b>freezer</b>.</div>
+        <div class="tray full draggable" id="tray2">
+          <div class="cube"></div><div class="cube"></div><div class="cube"></div><div class="cube"></div>
+          <div class="cube"></div><div class="cube"></div><div class="cube"></div><div class="cube"></div>
+        </div>
+        <div class="freezer open" id="freezer2"><div class="door"></div></div>
+        <div class="progress" id="progress6h"><i></i></div>
+        <button class="pill skip" id="skip2">Skip</button>
+        <div class="table"></div>
+      </div>
+    </section>
+
+    <!-- Scene 3 -->
+    <section class="scene" id="scene3">
+      <div class="stage">
+        <div class="eduBanner">Take out the tray and tilt to drop ice into the glass. <b>Ice is SOLID</b>.</div>
+        <div class="tray full" id="tray3" style="left:360px;bottom:200px"></div>
+        <button class="pill primary cta" id="tiltBtn">Tilt → Drop ice</button>
+        <div class="glass" id="glass2"><div class="fill" id="glass2Fill"></div></div>
+        <div class="bigText" id="solidTxt">Ice is <span style="color:var(--good);font-weight:700">SOLID</span> ✅</div>
+        <div class="progress" id="progress20m"><i></i></div>
+        <div class="table"></div>
+      </div>
+    </section>
+
+    <!-- Scene 4 -->
+    <section class="scene" id="scene4">
+      <div class="stage">
+        <div class="eduBanner">Pour the glass into the pan and heat to make <b>water vapor (gas)</b>.</div>
+        <div class="glass" id="glass3" style="left:540px"><div class="fill" id="glass3Fill" style="height:80%"></div></div>
+        <div class="stove" id="stove"><div class="pan" id="pan"></div><div class="steam" id="steam"><span></span><span></span><span></span></div></div>
+        <button class="pill primary cta" id="pourToPanBtn">Pour → Boil</button>
+        <div class="bigText" id="gasTxt">Water vapor is <span style="color:var(--hot);font-weight:700">GAS</span> ☁️</div>
+        <div class="table"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const qs = s => document.querySelector(s);
+    const scene = n => {
+      document.querySelectorAll('.scene').forEach(el=>el.classList.remove('active'));
+      qs('#scene'+n).classList.add('active');
+      updateStep(n);
+    }
+
+    function updateStep(n){
+      const stepTxt = {1:'Step 1/4 · Pour bottle → tray',2:'Step 2/4 · Put tray in freezer',3:'Step 3/4 · Ice → glass (melt)',4:'Step 4/4 · Boil to gas'};
+      let h = document.querySelector('header h1');
+      let old = document.querySelector('header .step');
+      if(!old){old = document.createElement('div');old.className='step';h.after(old);}old.textContent = stepTxt[n];
+    }
+
+    function isOverlap(a,b){const ar=a.getBoundingClientRect();const br=b.getBoundingClientRect();return !(ar.right < br.left || ar.left > br.right || ar.bottom < br.top || ar.top > br.bottom);} 
+
+    // Pointer-based draggable
+    function makeDraggable(el,onDrop){
+      let dragging=false,dx=0,dy=0,parentRect=null,pId=null;
+      el.style.touchAction='none';
+      el.addEventListener('pointerdown',e=>{
+        dragging=true; pId=e.pointerId; el.setPointerCapture(pId); el.classList.add('ghost');
+        const r=el.getBoundingClientRect(); parentRect = el.offsetParent.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top; el.style.bottom='auto'; e.preventDefault();
+      });
+      el.addEventListener('pointermove',e=>{ if(!dragging) return; const x = e.clientX - parentRect.left - dx; const y = e.clientY - parentRect.top - dy; const maxX = el.offsetParent.clientWidth - el.offsetWidth; const maxY = el.offsetParent.clientHeight - el.offsetHeight; el.style.left = Math.max(0, Math.min(x, maxX)) + 'px'; el.style.top = Math.max(0, Math.min(y, maxY)) + 'px'; });
+      el.addEventListener('pointerup',e=>{ if(!dragging) return; dragging=false; el.classList.remove('ghost'); onDrop?.(el); try{el.releasePointerCapture(pId);}catch(e){} });
+      el.tabIndex=0; el.addEventListener('keydown',e=>{const step = e.shiftKey?20:10; const cs=getComputedStyle(el); const L=parseFloat(cs.left)||0, T=parseFloat(cs.top)||0; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault(); if(e.key==='ArrowLeft') el.style.left = Math.max(0,L-step)+'px'; if(e.key==='ArrowRight') el.style.left=(L+step)+'px'; if(e.key==='ArrowUp') el.style.top=Math.max(0,T-step)+'px'; if(e.key==='ArrowDown') el.style.top=(T+step)+'px'; });
+    }
+
+    // Clock helper
+    const hand = qs('#hand'); const timeText = qs('#timeText');
+    function formatTime(t){const h=String(Math.floor(t/3600)).padStart(2,'0');const m=String(Math.floor((t%3600)/60)).padStart(2,'0');const s=String(Math.floor(t%60)).padStart(2,'0');return `${h}:${m}:${s}`}
+    function spinClock(totalSeconds,tickSeconds,msPerTick,progressEl,done){let shown=0;const bar=progressEl?.querySelector('i');progressEl&&(progressEl.style.display='block');const iv=setInterval(()=>{shown+=tickSeconds;if(shown>totalSeconds) shown=totalSeconds;timeText.textContent=formatTime(shown);const deg=(shown%60)/60*360;hand.style.transform=`translate(-50%,-100%) rotate(${deg}deg)`;if(bar) bar.style.width=(shown/totalSeconds*100)+'%';if(shown>=totalSeconds){clearInterval(iv);setTimeout(()=>{progressEl&&(progressEl.style.display='none');done&&done();},150)}},msPerTick);} 
+
+    // Scene logic
+    const bottle = qs('#bottle'); const tray = qs('#tray'); const glassFill = qs('#glassFill');
+    makeDraggable(bottle, ()=>{ if(isOverlap(bottle,tray)){ tray.classList.add('full'); qs('#skip1').style.display='none'; setTimeout(()=>scene(2),700); } });
+
+    // Scene 2
+    const tray2 = qs('#tray2'); const freezer2 = qs('#freezer2'); const progress6h = qs('#progress6h');
+    makeDraggable(tray2, ()=>{ if(isOverlap(tray2,qs('#freezer2'))){ qs('#freezer2').classList.remove('open'); spinClock(6*3600,5,5,progress6h,()=>{qs('#freezer2').classList.add('open'); setTimeout(()=>scene(3),600);}); } });
+    qs('#skip1').addEventListener('click',()=>scene(2)); qs('#skip2').addEventListener('click',()=>{qs('#freezer2').classList.remove('open'); spinClock(6*3600,5,5,progress6h,()=>{qs('#freezer2').classList.add('open'); setTimeout(()=>scene(3),600);});});
+
+    // Scene 3 tilt
+    qs('#tiltBtn').addEventListener('click',()=>{ qs('#glass2Fill').style.height='70%'; qs('#solidTxt').classList.add('show'); setTimeout(()=>{ spinClock(20*60,3,10,qs('#progress20m'),()=>{ qs('#glass2Fill').style.height='78%'; setTimeout(()=>scene(4),800); }); },600); });
+
+    // Scene 4 pour
+    qs('#pourToPanBtn').addEventListener('click',()=>{ qs('#stove').style.display='block'; qs('#glass3Fill').style.height='0%'; setTimeout(()=>{ qs('#steam').style.opacity='1'; qs('#gasTxt').classList.add('show'); },800); });
+
+    // Reset
+    qs('#resetBtn').addEventListener('click',()=>location.reload());
+
+    updateStep(1);
+  </script>
+</body>
+</html>
